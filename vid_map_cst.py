@@ -96,9 +96,24 @@ class MAPVid(object):
     def generate(self, onnx: bool = False):
         self.net = Network(self.num_classes, num_frame=self.num_frame)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.net.load_state_dict(torch.load(self.model_path, map_location=device))
+        model_dict = self.net.state_dict()
+        pretrained_dict = torch.load(self.model_path, map_location=device)
+        load_key, no_load_key, temp_dict = [], [], {}
+
+        for k, v in pretrained_dict.items():
+            key = k[7:] if k.startswith("module.") else k
+            if key in model_dict.keys() and np.shape(model_dict[key]) == np.shape(v):
+                temp_dict[key] = v
+                load_key.append(key)
+            else:
+                no_load_key.append(k)
+
+        model_dict.update(temp_dict)
+        self.net.load_state_dict(model_dict)
         self.net = self.net.eval()
         print(f"{self.model_path} model, and classes loaded.")
+        print("Successful Load Key Num:", len(load_key))
+        print("Fail To Load Key Num:", len(no_load_key))
         if not onnx and self.cuda:
             self.net = nn.DataParallel(self.net)
             self.net = self.net.cuda()
