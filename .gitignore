@@ -1,0 +1,14 @@
+.python-version
+uv.lock
+.venv
+
+logs/
+*.txt
+*.pth
+*.json 
+
+datasets
+
+*.pyc
+__pycache__/
+

@@ -157,7 +157,7 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     Init_Epoch          = 0
     Freeze_Epoch        = 100
-    Freeze_batch_size   = 4
+    Freeze_batch_size   = 16
     #------------------------------------------------------------------# 
     #   解冻阶段训练参数
     #   此时模型的主干不被冻结了，特征提取网络会发生改变
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     #   Freeze_Train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练。
     #------------------------------------------------------------------#
-    Freeze_Train        = False
+    Freeze_Train        = True
     
     #------------------------------------------------------------------#
     #   其它训练参数：学习率、优化器、学习率下降有关
@@ -192,9 +192,9 @@ if __name__ == "__main__":
     #   weight_decay    权值衰减，可防止过拟合
     #                   adam会导致weight_decay错误，使用adam时建议设置为0。
     #------------------------------------------------------------------#
-    optimizer_type      = "sgd"
+    optimizer_type      = "adam"
     momentum            = 0.937
-    weight_decay        = 5e-4
+    weight_decay        = 0
     #------------------------------------------------------------------#
     #   lr_decay_type   使用到的学习率下降方式，可选的有step、cos
     #------------------------------------------------------------------#
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     #                   开启后会加快数据读取速度，但是会占用更多内存
     #                   内存较小的电脑可以设置为2或者0  
     #------------------------------------------------------------------#
-    num_workers         = 2
+    num_workers         = 8
 
     #----------------------------------------------------#
     #   获得图片路径和标签
@@ -233,9 +233,9 @@ if __name__ == "__main__":
     # train_annotation_path = 'coco_train_DAUB.txt'
     # val_annotation_path = 'coco_val_DAUB.txt'
     
-    DATA_PATH = "/home/public/IRDST/"
-    train_annotation_path = 'coco_train_IRDST.txt'
-    val_annotation_path = 'coco_val_IRDST.txt'
+    DATA_PATH = "datasets/CST_AntiUAV/frhybrid"
+    train_annotation_path = 'coco_train_CST.txt'
+    val_annotation_path = 'coco_val_CST.txt'
 
     #------------------------------------------------------#
     #   设置用到的显卡

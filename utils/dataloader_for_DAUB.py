@@ -2,6 +2,7 @@ import cv2
 import os
 import numpy as np
 from PIL import Image
+from pathlib import Path
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import xml.etree.ElementTree as ET
@@ -65,6 +66,36 @@ def augmentation(images, boxes,h, w, hue=.1, sat=0.7, val=0.4):
     return np.array(images,dtype=np.float32), np.array(boxes,dtype=np.float32)
 
 
+def _resolve_frame_path(image_dir, frame_index, stem_width, suffix):
+    base_dir = Path(image_dir)
+    suffixes = [suffix] if suffix else [".jpg", ".jpeg", ".png", ".bmp"]
+    candidates = []
+    for ext in suffixes:
+        candidates.append(base_dir / f"{frame_index:0{stem_width}d}{ext}")
+        candidates.append(base_dir / f"{frame_index}{ext}")
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    raise FileNotFoundError(f"No frame found for index {frame_index} under {base_dir}")
+
+
+def _get_min_frame_index(image_dir, suffix):
+    base_dir = Path(image_dir)
+    suffixes = [suffix] if suffix else [".jpg", ".jpeg", ".png", ".bmp"]
+    frame_ids = []
+
+    for ext in suffixes:
+        for candidate in base_dir.glob(f"*{ext}"):
+            if candidate.stem.isdigit():
+                frame_ids.append(int(candidate.stem))
+
+    if frame_ids:
+        return min(frame_ids)
+    return 0
+
+
 
 class seqDataset(Dataset):
     def __init__(self, dataset_path, image_size, num_frame=5 ,type='train'):
@@ -103,11 +134,16 @@ class seqDataset(Dataset):
         image_data = []
         h, w = self.image_size, self.image_size
         file_name = self.img_idx[index]
-        image_id = int(file_name.split("/")[-1][:-4])
-        image_path = file_name.replace(file_name.split("/")[-1], '')
+        file_path = Path(file_name)
+        image_id = int(file_path.stem)
+        image_path = file_path.parent
+        stem_width = len(file_path.stem)
+        suffix = file_path.suffix or ".jpg"
+        min_frame_index = _get_min_frame_index(image_path, suffix)
         label_data = self.anno_idx[index]  # 4+1
         for id in range(0, self.num_frame):
-            img = Image.open(image_path +'%d.bmp' % max(image_id - id, 0))
+            frame_path = _resolve_frame_path(image_path, max(image_id - id, min_frame_index), stem_width, suffix)
+            img = Image.open(frame_path)
             img = cvtColor(img)
             iw, ih = img.size
             
