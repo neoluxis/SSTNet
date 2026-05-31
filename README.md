@@ -36,8 +36,14 @@ python utils_coco/coco_to_txt.py
 ## Usage
 
 ### Train
-```python
-CUDA_VISIBLE_DEVICES=0 python train_{dataset}.py
+Use the parameterized `train.py` entrypoint. Example:
+```bash
+CUDA_VISIBLE_DEVICES=0 uv run train.py \
+  --data-path datasets/CST_AntiUAV/frhybrid \
+  --train-annotation-path coco_train_CST.txt \
+  --val-annotation-path coco_val_CST.txt \
+  --model-path model_data/pre_trained.pth \
+  --use-earlystop True --earlystop-patience 10
 ```
 
 ### Test
@@ -81,6 +87,10 @@ python vid_predict.py
 
 <img src="/readme/PR1.png" width="500px">
 <img src="/readme/PR2.png" width="500px">
+
+## Bug fixes
+
+- For known CUDA / autograd issues encountered during training (BCE input assertions or in-place gradient errors), see the troubleshooting notes: [docs/bugs-fixing.md](docs/bugs-fixing.md)
 
 ## Contact
 If any questions, kindly contact with Shengjia Chen via e-mail: csj_uestc@126.com.

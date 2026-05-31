@@ -120,8 +120,12 @@ class YOLOLoss(nn.Module):
         grid                = grid.view(1, -1, 2)
 
         output              = output.flatten(start_dim=2).permute(0, 2, 1)
-        output[..., :2]     = (output[..., :2] + grid.type_as(output)) * stride
-        output[..., 2:4]    = torch.exp(output[..., 2:4]) * stride
+        xy                  = (output[..., :2] + grid.type_as(output)) * stride
+        # Clamp width/height logits before exp() to avoid overflow.
+        # One exploding batch can otherwise turn IoU targets into NaN and
+        # trigger BCE's device-side assertion later in training.
+        wh                  = torch.exp(output[..., 2:4].clamp(max=11.0)) * stride
+        output              = torch.cat((xy, wh, output[..., 4:]), dim=-1)
         return output, grid
 
     def get_losses(self, x_shifts, y_shifts, expanded_strides, labels, outputs):
@@ -193,6 +197,12 @@ class YOLOLoss(nn.Module):
         reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
         fg_masks    = torch.cat(fg_masks, 0)
+
+        if not torch.isfinite(cls_targets).all() or not torch.isfinite(obj_targets).all():
+            raise FloatingPointError(
+                "Non-finite training targets detected. "
+                "Check for invalid annotations, exploding predictions, or an unstable learning rate."
+            )
 
         num_fg      = max(num_fg, 1)
         loss_iou    = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum()
