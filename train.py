@@ -22,6 +22,7 @@ from utils.dataloader import YoloDataset, yolo_dataset_collate
 from utils.dataloader_for_IRDST  import seqDataset, dataset_collate
 from utils.utils import get_classes, show_config
 from utils.utils_fit import fit_one_epoch
+from utils.policy import EasyStop
 
 
 def str2bool(value):
@@ -70,6 +71,10 @@ def parse_args():
     parser.add_argument("--data-path", type=str, default="datasets/CST_AntiUAV/frhybrid")
     parser.add_argument("--train-annotation-path", type=str, default="coco_train_CST.txt")
     parser.add_argument("--val-annotation-path", type=str, default="coco_val_CST.txt")
+    parser.add_argument("--use-earlystop", type=str2bool, default=True, help='Enable EasyStop early stopping')
+    parser.add_argument("--earlystop-patience", type=int, default=10, help='EarlyStop patience in epochs')
+    parser.add_argument("--earlystop-min-delta", type=float, default=1e-4, help='Minimum change to qualify as improvement')
+    parser.add_argument("--earlystop-mode", type=str, default='max', choices=['max','min'], help='Monitor mode: max for metrics like mAP, min for loss')
     return parser.parse_args()
 
 '''
@@ -534,6 +539,12 @@ if __name__ == "__main__":
                                             eval_flag=eval_flag, period=eval_period)
         else:
             eval_callback   = None
+        # -------------------------
+        #   EasyStop early stopping (configurable via CLI)
+        # -------------------------
+        easystop = None
+        if local_rank == 0 and args.use_earlystop:
+            easystop = EasyStop(patience=args.earlystop_patience, min_delta=args.earlystop_min_delta, mode=args.earlystop_mode)
         
 
         #---------------------------------------#
@@ -589,8 +600,17 @@ if __name__ == "__main__":
                 train_sampler.set_epoch(epoch)
 
             set_optimizer_lr(optimizer, lr_scheduler_func, epoch)
-
             fit_one_epoch(model_train, model, ema, yolo_loss, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, fp16, scaler, save_period, log_dir, local_rank)
+
+            # Check early stopping (only on local rank 0 where eval_callback runs)
+            if local_rank == 0 and eval_callback is not None and easystop is not None:
+                try:
+                    last_map = eval_callback.maps[-1]
+                except Exception:
+                    last_map = None
+                if easystop.step(last_map):
+                    print(f"Early stopping triggered at epoch {epoch + 1}. Best: {easystop.best}")
+                    break
                         
             if distributed:
                 dist.barrier()
